@@ -94,6 +94,17 @@ Dùng để thay đổi ngữ cảnh (`this`) cho hàm:
 
 Mọi object trong JS sinh ra đều có một thuộc tính ngầm liên kết nó với một object khác, gọi là Prototype. Khi chúng ta cố truy cập một thuộc tính của một object mà nó không có sẵn, JS sẽ dò tìm lên phía trên Prototype của object đó (và cứ thế tiếp tục tạo thành **Prototype Chain**) cho đến khi tìm thấy, hoặc chạm mốc kết thúc ở `null`. Cơ chế này mang lại kế thừa (Inheritance) trong JS.
 
+### 8. Phân biệt Callback, Promise và Async/Await
+
+Đây là 3 cách tiếp cận lịch sử trong JavaScript để xử lý các tác vụ bất đồng bộ (Asynchronous):
+
+- **Callback**: Là một hàm được truyền vào một hàm khác dưới dạng tham số để nó được gọi (thực thi) sau khi thủ tục bất đồng bộ của hàm chính hoàn thành.
+  - _Nhược điểm_: Khi có nhiều tác vụ phụ thuộc nhau, các callback bị lồng ghép quá sâu tạo thành **Callback Hell** (hay kim tự tháp hủy diệt). Code cực kỳ khó đọc, khó bảo trì và phân tán logic xử lý lỗi.
+- **Promise**: Ra mắt ở ES6 để giải các vấn đề của callback. Nó là một đối tượng đại diện cho sự hoàn thành (hoặc thất bại) của một thao tác bất đồng bộ. Nó có 3 trạng thái: `Pending` (đang chờ), `Fulfilled` (thành công) hoặc `Rejected` (thất bại).
+  - _Ưu điểm_: Giải quyết mã lồng nhau bằng cách nối chuỗi (chaining) các hàm `.then()`, và gom việc xử lý lỗi về một hàm `.catch()` duy nhất ở cuối.
+- **Async/Await**: Sinh ra ở bản cập nhật ES8, thực chất là một lớp áo cú pháp (Syntactic sugar) bọc ngoài Promise.
+  - _Ưu điểm_: Cho phép viết các đoạn code bất đồng bộ mà trông có vẻ đồng bộ, tuyến tính từ trên xuống. Không còn chuỗi `.then()`. Xử lý lỗi rất trực quan và quen thuộc với phong cách lập trình cấu trúc thông qua khối lệnh `try...catch`.
+
 ---
 
 ## Phần 2: NodeJS (Kiểu trúc và Vận hành)
@@ -133,16 +144,24 @@ Kiến trúc của NodeJS kết hợp 2 thành phần cốt lõi:
 - Sau khi bàn giao tác vụ, Node (Event Loop) lại lập tức rảnh rang để nhận và phục vụ các request mới tiếp theo ngay luồng đó.
 - Khi OS hoặc `libuv` (thông qua C++ Thread Pool) xử lý xong tác vụ nặng, nó trả callback lại qua Event Queue, sau đó Event Loop sẽ pick lên xử lý tiếp lúc nào rảnh. Nhờ vậy có thể xử lý concurrency cực cao dẫu chỉ dùng 1 main JS thread.
 
-### 4. Streams trong Node là gì? Có mấy loại?
+### 4. Streams trong Node là gì? Tại sao phải dùng Stream thay cho I/O thông thường?
 
-Streams dùng để lấy và thao tác (đọc/ghi) một lượng dữ liệu chia thành từng đoạn nhỏ (chunks) theo đường ống một cách liên tục thay vì tải toàn bộ nó vào RAM cực kỳ phí bộ nhớ.
-Ví dụ: Thao tác file cực lớn, stream video.
-Bốn loại Stream chính:
+**Streams (Luồng)** là một trong những concept mạnh mẽ và quan trọng nhất của NodeJS khi nhắc tới xử lý data lớn.
+Stream giúp lấy và thao tác (đọc/ghi) một lượng dữ liệu chia thành từng đoạn nhỏ (gọi là **chunks**) theo một "đường ống" một cách liên tục thay vì tải toàn bộ file đó vào RAM một lúc như cách I/O truyền thống (`fs.readFile`).
 
-1. **Readable:** Chỉ đọc dữ liệu (`fs.createReadStream()`).
-2. **Writable:** Để viết dữ liệu ra (`fs.createWriteStream()`).
-3. **Duplex:** Có thể vừa đọc vừa viết (`net.Socket`).
-4. **Transform:** Có thể vừa đọc vừa viết nhưng chỉnh sửa được chunk dữ liệu qua stream đó (ví dụ zlib giúp mã hóa/nén gzip).
+**Tại sao phải dùng Stream?**
+
+1. **Tiết kiệm Bộ nhớ (Memory Efficiency)**: Tưởng tượng bạn có file video 2GB nhưng VPS server của bạn chỉ có 512MB RAM. Nếu dùng `fs.readFile` (đọc toàn bộ file vào RAM rồi mới xử lý/gửi đi), server sẽ Crash tắp lự (Out of Memory). Với stream, nó chỉ tải từng chunk nhỏ (vd 64KB) xử lý xong nhả ra tải chunk tiếp theo. Rất an toàn.
+2. **Tiết kiệm Thời gian (Time Efficiency)**: Với I/O truyền thống, bạn phải đợi TẤT CẢ dữ liệu tải xong thì mới bắt đầu xử lý mảnh đầu tiên. Với stream, dữ liệu chunk đầu tiên về tới là ta có thể bắt đầu xử lý và gửi cho user ngay lập tức (giống cách Netflix hay Youtube stream video cho bạn xem mà không cần đợi tải xong cả bộ phim).
+
+**Bốn loại Stream chính trong NodeJS:**
+
+1. **Readable Stream:** Chỉ để đọc dữ liệu vào (Ví dụ: `fs.createReadStream()`, nhận HTTP Request ở Server).
+2. **Writable Stream:** Để viết/đẩy dữ liệu ra (Ví dụ: `fs.createWriteStream()`, trả HTTP Response về Client).
+3. **Duplex Stream:** Có thể vừa đọc vừa viết liền mạch, giống như một đường hầm hai chiều (Ví dụ: Socket liên kết mạng `net.Socket`).
+4. **Transform Stream:** Là Duplex stream nhỉnh hơn, nó có thể lấy dữ liệu đọc vào, **CHỈNH SỬA / BIẾN ĐỔI** dữ liệu đó, rồi ghi trực tiếp ra đầu ra (Ví dụ: module `zlib` giúp vừa đọc file vừa nén nó thành file `.zip`, hoặc module mã hóa `crypto`).
+
+_(Tip lúc phỏng vấn)_: Hai tính năng thường được kết hợp cùng Stream là **`pipe()`**, giúp nối thẳng đầu ra của Readable Stream vào đầu vào của một Writable Stream một cách nhàn hạ mà khỏi cần quản lý dữ liệu lắt nhắt.
 
 ### 5. Khác biệt giữa `process.nextTick()` và `setImmediate()`
 
@@ -163,3 +182,81 @@ Bốn loại Stream chính:
    - `process.on('uncaughtException', ...)`
    - `process.on('unhandledRejection', ...)`
      _(Chỉ dùng bắt lỗi global này để ghi Log (winston/pino), xoá session rồi restart process một cách an toàn (graceful shutdown), tuyệt đối không để chôn luôn cái lỗi và tiếp tục chạy vì state chương trình đã corrupt)._
+
+### 8. So sánh NodeJS và Java (Spring Boot)
+
+Đây là câu hỏi thường xuyên gặp khi ứng tuyển Backend, yêu cầu ứng viên hiểu rào cản và sức mạnh của 2 ecosystem phổ biến nhất:
+
+| Tính năng cốt lõi                    | NodeJS                                                                                                                                                            | Java (Spring Boot)                                                                                                                                                                 |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mô hình luồng (Threading)**        | **Single-Threaded** (Đơn luồng) kết hợp Event Loop (Non-blocking I/O). Rất mượt để handle lượng request khổng lồ nhưng sợ CPU calculation.                        | **Multi-Threaded** (Đa luồng). Mỗi request mới thường sinh ra 1 thread riêng biệt. Cực mạnh khi tính toán, nhưng tốn tải RAM/Memory lớn cho các thread.                            |
+| **Kiểu dữ liệu (Typing)**            | Tự do (Dynamically typed). Rất nhanh để xây dựng Prototype nhưng rình rập nhiều lỗi vặt Runtime nếu project phình to (Có thể giải quyết phần nào bởi TypeScript). | Rất chặt chẽ (Statically typed). Rất mất thời gian khai báo ban đầu nhưng bù lại an toàn 100% thời điểm compile, siêu phù hợp cho hệ thống doanh nghiệp lõi (Ngân hàng, bảo hiểm). |
+| **Hiệu suất / Tốc độ**               | Rất nhanh ở các truy vấn I/O (Database access, Network call), phù hợp làm API Server, Microservices, App Chat thời gian thực.                                     | Nhỉnh hơn tuyệt đối khi bị ép phải thực thi các tác vụ tính toán (Toán học phức tạp, Xử lý video, Big Data).                                                                       |
+| **Hệ sinh thái (Ecosystem)**         | Kho NPM khổng lồ với hàng triệu thư viện, nhiều tool mới mẻ hiện đại. Nhược điểm là rác cũng nhiều, dependencies chằng chịt dễ lỗi vặt.                           | Khủng khiếp và vững chãi. Maven/Gradle sở hữu các thư viện cực kỳ bảo mật (Security), ổn định suốt hàng thập kỷ được các tập đoàn lớn tin dùng.                                    |
+| **Độ khó tiếp cận (Learning Curve)** | Rất thấp. Cú pháp JS quá quen thuộc, Fullstack Dev dễ nhảy qua nhảy lại giữa Client và Server.                                                                    | Độ khó cao. Cần hiểu sâu về OOP (Lập trình hướng đối tượng), Design Patterns, cấu trúc dự án phức tạp hơn nhiều.                                                                   |
+
+**Tóm tắt khi tư vấn dự án:**
+
+- Hãy tư vấn **NodeJS** khi: Startup làm App cần ra lò khẩn cấp (MVP), Team chuyên React/JS, Dùng MongoDB/NoSQL nhiều, App mang tính Streaming, Chat, Single Page Application.
+- Hãy tư vấn **Java** khi: Làm cho dự án chính phủ / Enterprise (Ngân hàng), Kiến trúc cực kỳ phức tạp (Architecture nặng), DB phức mang tính Relational (SQL) đồ sộ, Chú trọng tính bảo mật vững chãi và vận hành thập kỷ.
+
+### 9. Worker Threads trong NodeJS là gì và hoạt động ra sao?
+
+**Khái niệm:**  
+Như đã đề cập, NodeJS là **Single-Threaded** (đơn luồng), có nghĩa là nó gặp giới hạn khổng lồ và sẽ bị "treo" (blocking Event Loop) nếu phải tính toán các tác vụ nặng (CPU-intensive tasks) như xử lý ảnh 3D, mã hóa/giải mã video, hay tính toán AI... Để giải quyết sự yếu kém này, NodeJS đã chính thức giới thiệu **Worker Threads** (thông qua module `worker_threads`).
+
+**Cơ chế hoạt động:**
+
+- Thay vì sinh ra các tiến trình (Process) hoàn toàn mới và rườm rà như module `cluster`, Worker Threads tạo ra các **luồng (Threads) phụ** nhẹ nhàng chạy song song, chia sẻ cùng nhau **một tiến trình (Process) cha** duy nhất.
+- Tính năng vũ khí lợi hại nhất của Worker Threads là khả năng **Chia sẻ Bộ nhớ (Shared Memory)** qua `SharedArrayBuffer`, giúp các luồng có thể trực tiếp làm việc trên cùng một mảng dữ liệu cực lớn mà không cần thao tác tuần tự dữ liệu cồng kềnh qua lại bằng cơ chế `postMessage` (MessageChannel) tốn tài nguyên.
+- Tuy dùng chung Process, nhưng bản thân mỗi Worker vẫn sở hữu một **V8 Engine độc lập, Node Environment Context cá nhân cũng như Event Loop riêng biệt**. JS code chạy trên luồng Worker không bao giờ block luồng Main.
+
+**Tựu trung (Ghi nhớ cho phỏng vấn):**
+
+> _Nên dùng Worker Threads để giải quyết các mớ code cần cày ải CPU (CPU-bound) để Event Loop chính luôn thông thoáng. TUYỆT ĐỐI KHÔNG NÊN lạm dụng nó để xử lý các tác vụ I/O (call API / read DB / read File) vì cốt lõi của NodeJS với cơ chế Non-blocking I/O ngầm vốn đã có tốc độ vô đối trong mảng xử lý I/O concurrent rồi._
+
+### 10. Buffer là gì? Khác biệt giữa Buffer và Stream như thế nào?
+
+**Buffer là gì?**
+
+- Trong NodeJS, `Buffer` là một class (mặc định global) dùng để lưu trữ và làm việc trực tiếp với **dữ liệu nhị phân (binary data)** nguyên thủy.
+- Bạn có thể hình dung Buffer giống như một **mảng các số nguyên** (mỗi số đại diện cho 1 byte dữ liệu từ 0 đến 255), nhưng kích thước của nó bị cố định (fixed-size) ngay từ lúc khởi tạo và không thể co giãn.
+- Điểm đặc biệt là vùng nhớ của Buffer được cấp phát ở bên ngoài bộ nhớ Heap của V8 Engine (do tầng C++ của Node quản lý trực tiếp), giúp tốc độ cấp phát rất nhanh. Buffer tự động xuất hiện dưới nền mỗi khi ta đọc file, tải ảnh/video, hay giao tiếp mạng.
+
+**Khác biệt giữa Buffer và Stream (Cách trả lời dễ ghi điểm bằng ẩn dụ):**
+
+Hãy hình dung quá trình di chuyển ở bến xe buýt:
+
+- **Buffer:** Chính là chiếc xe buýt (hay khu vực chờ). Nó gom (thu thập) hành khách (dữ liệu nhị phân) lại vào một không gian tạm thời. Chỉ khi xe đầy hành khách (hoặc đến giờ), toàn bộ chiếc xe đó mới di chuyển 1 lượt.
+- **Stream:** Là thao tác dòng người đi bộ qua một ống lồng hẹp (như ra máy bay vậy). Hành khách (dữ liệu) chui qua liên tục, người này nối tiếp người kia tới đích mà không cần phải gom lại chờ bất cứ ai. (Thực chất, từng hành khách chạy qua ống lồng chính là từng **cục Buffer nhỏ lẻ (chunks)**).
+
+**Tóm tắt sự phân biệt khi phỏng vấn:**
+
+| Tiêu chí                  | Buffer (fs.readFile)                                                                                                                          | Stream (fs.createReadStream)                                                                                                                       |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Cách truyền thải**      | Gom tất cả dữ liệu thành 1 khối duy nhất rồi mới thao tác/gửi đi.                                                                             | Dữ liệu được cắt nhỏ (chia thành các chunks) và chảy liên tục.                                                                                     |
+| **Tiêu tốn Bộ nhớ (RAM)** | **Rất nguy hiểm**. Kích thước file bao nhiêu thì ngốn bấy nhiêu RAM. Xử lý file 2GB trên VPS có 1GB bộ nhớ sẽ làm crash (Out of Memory) ngay. | **Rất tiết kiệm**. Chỉ tốn vài chục KB bộ nhớ (chính là size của mỗi chunk Buffer đang luân chuyển) là có thể thao tác với file dung lượng vô hạn. |
+| **Độ trễ (Latency)**      | Phải đợi gom đủ 100% dữ liệu mới được thao tác tiếp -> Rất chậm.                                                                              | Bất cứ mảnh (chunk) dữ liệu nào chui qua ống stream là có thể thao tác và truyền đi ngay tức khắc -> Khách hàng thấy kết quả ngay lập tức.         |
+
+### 11. Khi nào nên dùng Worker Threads? Khi nào nên dùng Child Process?
+
+Mặc dù cả `worker_threads` và `child_process` đều là các giải pháp cốt lõi để "vượt rào" hạn chế đơn luồng (Single-Threaded) của NodeJS, nhưng mục đích áp dụng của chúng lại rất khác biệt:
+
+1. **Child Process (Tiến trình con)**:
+   - **Bản chất**: Sinh ra (fork/spawn) một quá trình hệ điều hành hoàn toàn ĐỘC LẬP. Nó có không gian bộ nhớ riêng biệt hoàn toàn.
+   - **Giao tiếp**: Phải giao tiếp qua hệ thống nhắn tin (IPC - Inter Process Communication) bằng cách serialize/deserialize dữ liệu (thường sang JSON). Quá trình này rất đắt đỏ và chậm.
+   - **Khi nào dùng?**
+     - Dùng để chạy một file thực thi hoặc 1 ngôn ngữ độc lập khác (Ví dụ gọi 1 script Python học máy, thực thi file bash, hay chạy FFmpeg để convert video).
+     - Muốn chạy các tác vụ có tính cô lập cao, nếu app đó bị crash cũng không gây hề hấn gì đến NodeJS app chính.
+   - **Nhược điểm**: Tổn hao cực lớn RAM hệ thống.
+
+2. **Worker Threads (Luồng phụ)**:
+   - **Bản chất**: Tạo các luồng phụ nằm GỌN BÊN TRONG tiến trình NodeJS cha. Không sinh ra tiến trình OS mới.
+   - **Giao tiếp**: Cực kỳ tối ưu nhờ khả năng chia sẻ mảng bộ nhớ dùng chung (`SharedArrayBuffer`). Không cần phải serialize phức tạp tốn kém thời gian như IPC.
+   - **Khi nào dùng?**
+     - Dành cho những tính toán nặng thuần túy (CPU Intensive Tasks) bằng CHÍNH mã gốc JavaScript / NodeJS (như parsing file JSON vài GB, thao tác ma trận Toán học, hoặc mã hóa hash SHA-256 cường độ cao).
+   - **Ưu điểm**: Nhẹ bộ nhớ hơn hẳn, thao tác giao tiếp data giữa luồng chính và luồng phụ là siêu tốc.
+
+**Bí kíp Tóm lược cho nhà tuyển dụng:**
+
+> "Dùng **Child Process** nếu ta cần chạy mã của một phần mềm/ngôn ngữ khác bên ngoài, chấp nhận cách ly dung lượng RAM riêng biệt. Dùng **Worker Threads** để viết hàm tính toán Toán Học/CPU cường độ cao ngay bằng JS mà vẫn muốn chia sẻ chung một vùng biến dữ liệu dưới nền với luồng cha để tiết kiệm tài nguyên."
