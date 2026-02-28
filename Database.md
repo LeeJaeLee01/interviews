@@ -4,11 +4,21 @@ Tài liệu này tổng hợp các câu hỏi phỏng vấn thường gặp về
 
 ---
 
-### 1. Indexing (Đánh chỉ mục) là gì? Có các kiểu đánh Index (chỉ mục) nào phổ biến?
+### 1. Indexing (Đánh chỉ mục) là gì? Ưu và Nhược điểm của Index?
 
 **Khái niệm:**
 Index (chỉ mục) trong CSDL giống như phần Mục lục ở đầu một quyển sách. Thay vì phải lật từng trang (Full Table Scan) để tìm một thông tin, CSDL sẽ tra cứu trong cấu trúc Index nhỏ gọn trước để tìm ra chính xác "số trang" (con trỏ địa chỉ vật lý) ghi dữ liệu đó. Điều này giúp tăng tốc độ của lệnh `SELECT` (đọc) lên hàng trăm đến hàng ngàn lần.
-Nhưng bù lại, nó làm chậm đi quá trình `INSERT`, `UPDATE`, `DELETE` vì mỗi khi dữ liệu thay đổi, mục lục Index cũng phải được cập nhật lại theo.
+
+**Ưu điểm của Index:**
+
+- **Tốc độ:** Tăng tốc độ truy xuất dữ liệu (câu lệnh `SELECT`, `WHERE`) lên rất nhiều lần, đặc biệt là với các bảng có hàng triệu bản ghi.
+- **Tối ưu gom nhóm và sắp xếp:** Làm cho các thao tác Sorting (`ORDER BY`) và Grouping (`GROUP BY`) diễn ra mượt mà và ít tốn CPU hơn vì dữ liệu trong Index thường đã được sắp xếp sẵn.
+- **Tính toàn vẹn:** Cấu trúc `Unique Index` (như ở Primary Key) vô tình tạo ra một rào chắn cực kỳ vững chắc để đảm bảo không có hai dòng dữ liệu trùng lặp.
+
+**Nhược điểm của Index:**
+
+- **Làm chậm các thao tác Ghi (Write):** Mỗi khi có một thao tác `INSERT`, `UPDATE`, hoặc `DELETE` xảy ra trên bảng, hệ thống CSDL ngoài việc thay đổi dữ liệu thật, còn phải lặn lội tìm và cập nhật lại tất cả các cấu trúc cây Index liên quan (bóp méo cây, phân tách Node...). Do đó, nếu bảng bị "lạm dụng" đánh quá nhiều Index, tốc độ ghi dữ liệu sẽ chậm như rùa bò.
+- **Tốn không gian đĩa:** Index là một cấu trúc dữ liệu vật lý riêng biệt, vì vậy việc lưu trữ một đống Index sẽ tốn một lượng dung lượng đĩa bộ nhớ (RAM + Disk space) đôi khi lớn ngang bằng bản thân lượng dữ liệu thật.
 
 **Các kiểu đánh Index phổ biến nhất:**
 
@@ -126,3 +136,81 @@ Giữa dòng chảy kiến trúc phần mềm, `RDBMS` (Relational DBMS - Hệ q
 **Tóm tắt "Bùa hộ mệnh" trả lời nhanh:**
 
 > _"Mọi RDBMS đều là một DBMS, nhưng một DBMS chưa chắc đã là RDBMS. Điểm ăn tiền lớn nhất của chữ R (Relational) nằm ở khả năng liên kết dữ liệu giữa nhiều bảng bằng Khoá ngoại (Foreign Keys), khả năng chuẩn hoá dữ kiện, cơ chế toàn vẹn giao dịch ACID tuyệt đối và được đúc kết hoàn hảo cho hệ thống đa người truy cập đồng thời (Multi-user)."_
+
+---
+
+### 5. Khóa chính (Primary Key) và Khóa ngoại (Foreign Key) khác nhau thế nào? Hai khóa này có mặc định đánh Index không?
+
+Đây là cặp khái niệm "xương sống" để thiết lập tính Relational (quan hệ) trong CSDL.
+
+#### 1. Sự khác biệt cơ bản
+
+**Primary Key (Khóa chính):**
+
+- **Mục đích:** Là linh hồn của bảng, dùng để nhận diện và định danh **DUY NHẤT** (Unique) cho mỗi một dòng (Row) trong hệ thống CSDL (như số CCCD của mỗi người).
+- **Tính chất:** Tuyệt đối KHÔNG được chứa giá trị `NULL`. Mỗi bảng chỉ được phép có **tối đa 1** Primary Key (Khóa chính này có thể cấu tạo từ một cột đơn là `ID` hoặc nhiều cột ghép lại thành Composite Key).
+- **Ví dụ:** Cột `user_id` trong bảng `Users`.
+
+**Foreign Key (Khóa ngoại):**
+
+- **Mục đích:** Là cây cầu kết nối giữa hai bảng. Nó lấy giá trị từ một cột của bảng này (thường là trỏ đến chính Primary Key của bảng kia) để thiết lập **"Mối Quan Hệ" (Relationship)** giữa hai nhóm dữ liệu, đảm bảo không bị mồ côi (Referential Integrity).
+- **Tính chất:** CÓ THỂ chứa giá trị `NULL` (nếu liên kết đó không bắt buộc). Một bảng có thể chứa vô số **(từ 0 đến nhiều)** Foreign Key, phụ thuộc vào mức độ phức tạp móc nối của dữ liệu.
+- **Ví dụ:** Cột `owner_id` trong bảng `Orders` trỏ về cột `user_id` của bảng `Users` (biết được Order này là của ai).
+
+#### 2. Câu hỏi hóc búa: Hai khóa này có MẶC ĐỊNH được CSDL tự động đánh Index không?
+
+Khẳng định mạnh mẽ trong phòng phỏng vấn: **KHÔNG PHẢI TẤT CẢ ĐỀU ĐƯỢC MẶC ĐỊNH ĐÁNH INDEX!**
+
+**Với Khóa chính (Primary Key):**
+
+- Trả lời là **CÓ**.
+- Ở 100% các hệ quản trị CSDL quan hệ (MySQL, PostgreSQL, SQL Server...), cứ hễ bạn khai báo một cấu trúc `PRIMARY KEY`, engine bên dưới sẽ **ngay lập tức tự động** bám một **Clustered Index / Unique Index** (Chỉ mục cụm) vào cột đó. Vì vậy, việc lệnh `SELECT * FROM users WHERE id = 1` luôn có tốc độ tìm kiếm nhanh như điện chớp bẩm sinh mà lập trình viên không cần viết thêm mã `CREATE INDEX`.
+
+**Với Khóa ngoại (Foreign Key):**
+
+- Trả lời là **KHÔNG (mặc định)**.
+- Khi bạn cắm cờ `FOREIGN KEY` (ví dụ từ bảng A trỏ sang bảng B), CSDL **chỉ** thiết lập quy tắc ràng buộc "Nếu xoá khoá chính bảng A mà bảng B còn dùng thì không cho xoá" (Ràng buộc toàn vẹn).
+- Nó dứt khoát **KHÔNG TỰ ĐỘNG** tạo ra bất cứ mẩu Index (Non-Clustered) nào cho cột Khóa ngoại đó (trong cả Oracle, SQL Server, PostgreSQL...). Ngoại lệ hiếm hoi nằm ở Storage Engine **InnoDB của MySQL**, nó sẽ tự động sinh Index cho Foreign Key nếu bạn chưa tạo.
+- **Hệ lụy chí mạng (Cạm bẫy cực lớn của Junior):** Dù khóa ngoại thường xuyên được Dev sử dụng đính vào mẹo câu `JOIN` 2 bảng với nhau. Tuy nhiên, vì CSDL không tự tạo Index nên tốc độ Join hàng triệu dữ liệu sẽ tuột dốc không phanh.
+- **Cách xử lý chuẩn Senior:** Khi thiết kế database, dev có kinh nghiệm đều chủ động gõ thêm dòng lệnh `CREATE INDEX index_name ON table_name(foreign_key_column);` thủ công vào cấu trúc schema để tối ưu hóa hiệu năng Query đa bảng.
+
+---
+
+### 6. Làm sao để tối ưu truy vấn (Query Optimization) trong SQL?
+
+Khi tham gia phỏng vấn, "Tối ưu database" là một chủ đề bắt buộc nhà tuyển dụng sẽ hỏi. Để trả lời trọn vẹn, hãy chia cách giải quyết thành 3 phần: Tối ưu câu lệnh, Tối ưu theo chuẩn thực thi (Sequence), và Tối ưu hệ thống lớn.
+
+#### 1. Các thủ thuật viết Query tối ưu hiệu năng (Code Level)
+
+- **Sử dụng Index hợp lý:** Chỉ tạo Index trên các cột thường xuyên xuất hiện trong mệnh đề `WHERE`, `JOIN`, hay `ORDER BY`. Tránh lạm dụng đánh Index vô tội vạ, vì nó sẽ làm các thao tác bóp méo dữ liệu như `INSERT`, `UPDATE` trở nên chậm chạp đi rất nhiều.
+- **Tránh dùng `SELECT *`:** Thay vì móc tất cả, hãy chỉ định đích danh từng cột cần thiết (VD: `SELECT id, name, email`). Việc lấy thừa hàng đống cột không bao giờ dùng tới làm lãng phí bộ nhớ RAM, bắt ổ đĩa I/O quay nhiều hơn và làm nghẽn băng thông truyền tải mạng kết nối từ Database tới Server ứng dụng.
+- **Ưu tiên `JOIN` thay vì Subquery (Truy vấn lặp):** Các Database Engine đời mới tối ưu quá trình `JOIN` nhiều bảng chung 1 lược đồ thực thi rất tốt. Ngược lại, `Subquery` (truy vấn lồng) đôi khi bị thực thi một cách độc lập nhiều vòng (như vòng lặp O(N^2)) gây tê liệt Server CSDL.
+- **Sử dụng `EXPLAIN` (hoặc `EXPLAIN ANALYZE`):** Đây là "bác sĩ siêu âm" của SQL. Bằng cách gõ thêm chữ `EXPLAIN` trước câu Query của bạn, Database sẽ không chạy lệnh đó mà in ra **Query Plan (Kế hoạch thực thi)**: Nó báo cho bạn biết câu lệnh này đang đi theo Index nào, hay đang làm trò rồ dại là Full Table Scan (Quét toàn bảng), và khâu nào đang "ngốn" Cost cao nhất để bạn tối ưu lại.
+- **Cẩn thận với dấu `%` ở đầu lệnh `LIKE`:** Nhu cầu tìm kiếm `WHERE name LIKE '%Anh'` (Wildcard ở đầu) sẽ **Vô hiệu hóa toàn bộ B-Tree Index** của cột `name`, vì B-Tree chỉ tra cứu được mốc tính từ trái sang phải. Ép CSDL quay về hình phạt tìm kiếm cực kì chậm.
+
+#### 2. Tối ưu kiến trúc ở Tầng Hệ Thống (Khi dữ liệu khổng lồ)
+
+- **Phân vùng bảng (Partitioning/Sharding):** Nếu một bảng `Orders` có 1 tỷ dòng kéo dài 10 năm, việc Query trong đó là cực hình. CSDL cung cấp cơ chế Partitioning để "chặt" bảng đó ra làm nhiều cục nhỏ (theo Tháng, theo Năm). Khi bạn dùng câu lệnh `SELECT ... WHERE tháng = 1/2024`, CSDL sẽ chỉ vào đúng duy nhất vách chia Partition của tháng 1/2024 để tìm kiếm. Nhanh và tiết kiệm tài nguyên đến kinh ngạc.
+- **Sử dụng Caching (Redis/Memcached):** Đối chiếu với quy tắc 80/20. Nếu các dữ liệu Master (như "Danh mục sản phẩm", "Cấu hình Website") bị `SELECT` triệu lần nhưng 1 tuần mới bị `UPDATE` một lần, thì dại gì mà đập liên tục vào Database SQL bắt nó tính lại? Đẩy toàn bộ result đó lên RAM (dùng Redis/Memcached) với TTL (Time-To-Live) để trả lời truy vấn dưới 1ms.
+
+#### 3. Tối ưu dựa trên hiểu biết về "Sequence Query" (Thứ tự thực thi Logic)
+
+Nhiều lập trình viên lầm tưởng một câu lệnh SQL chạy từ trên xuống dưới bắt đầu từ chữ `SELECT`. Hoàn toàn sai! Dưới đây là Thứ tự thực thi logic cốt lõi (Logical Exceution Sequence) của một RDBMS:
+
+> **Thứ tự của RDBMS:** `FROM` & `JOIN` ➜ `WHERE` ➜ `GROUP BY` ➜ `HAVING` ➜ `SELECT` ➜ `ORDER BY` ➜ `LIMIT` / `OFFSET`
+
+**Mẹo tối ưu thần sầu vì hiểu Sequence (Điểm cộng cực mạnh khi Phỏng vấn):**
+
+1.  **Chặn rác từ vòng gửi xe bằng `WHERE`:** Vì mệnh đề `WHERE` được chạy ở ngay Bước 2 (Chỉ đứng sau việc đọc tên Bảng), trong khi `GROUP BY` và `HAVING` chạy tuốt ở giữa. Quy tắc vàng là: Hãy ép một cái phễu `WHERE` vào để gạt bỏ đi 90% dữ liệu không cần thiết ngõ hầu để CSDL tránh việc phải ôm toàn bộ rác đó vào RAM để `GROUP BY` đếm tổng số, rồi mới dùng `HAVING` đá rác ra. Bộ lọc càng sớm, Server CSDL càng nhẹ gánh.
+2.  **Tránh bọc Hàm (Function) ở vế trái của `WHERE` (Cạm bẫy SARGable):**
+    - ❌ Mã tệ: `WHERE YEAR(create_at) = 2023`
+    - ✅ Mã tối ưu chuẩn mực: `WHERE create_at >= '2023-01-01' AND create_at <= '2023-12-31'`
+    - **Lý do:** Khi bạn bọc cái cột gốc `create_at` bằng một Hàm số `YEAR()`, CSDL sẽ không bao giờ hiểu được cột đó nữa, nó đành bỏ quên cây B-Tree Index của cột `create_at` và tháo khóa chốt quất Full Table Scan toàn bộ hàng triệu dữ liệu để bóc vỏ hàm `YEAR()` ra rồi mới so sánh.
+
+#### 4. Bài toán nhức nhối khi làm Backend: N+1 Querie (Truy vấn lặp vòng)
+
+- **Vấn đề (Trap N+1):** Căn bệnh kinh điển của các framework ORM (như Laravel Eloquent, Hibernate, TypeORM). Khi bạn viết code (Ví dụ ở Java/PHP/Node) để lấy ra **danh sách 10 Bài Viết** (đây là 1 Query). Lập tức màn hình báo lấy đủ. Nhưng sau đó trong vòng lặp `for` render ra HTML, bạn lại vô tình truy cập `post.Author` để lấy thông tin Tác Giả của từng bài viết đó. Hậu quả là ORM lén lút sinh ra **thêm 10 Queries lẻ tẻ** chĩa vào bảng _Users_ để lấy 10 Tác Giả.
+  Tổng cộng hệ thống phải chịu `1 + 10 = 11` Querie đến CSDL. Khối lượng thời gian mạng luân chuyển (Network Round-Trip) cho từng query nhỏ nhoi này gộp lại sẽ bóp chết hoàn toàn tốc độ phản hồi của API.
+- **Cách trị:**
+  - Sử dụng cơ chế Dùng **Eager Loading** (Ví dụ Laravel là gõ thêm `with('author')`, TypeORM là `relations: ['author']`).
+  - Hoặc thuần SQL: Dùng từ khóa `IN (1, 2, 3...)` để gom 10 Authors đó vào nhổ bằng 1 Query duy nhất ngay từ đầu. Giảm số vòng xoay từ N+1 thao tác xuống chỉ còn 2 truy vấn!

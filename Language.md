@@ -105,6 +105,56 @@ Mọi object trong JS sinh ra đều có một thuộc tính ngầm liên kết 
 - **Async/Await**: Sinh ra ở bản cập nhật ES8, thực chất là một lớp áo cú pháp (Syntactic sugar) bọc ngoài Promise.
   - _Ưu điểm_: Cho phép viết các đoạn code bất đồng bộ mà trông có vẻ đồng bộ, tuyến tính từ trên xuống. Không còn chuỗi `.then()`. Xử lý lỗi rất trực quan và quen thuộc với phong cách lập trình cấu trúc thông qua khối lệnh `try...catch`.
 
+### 9. Shallow copy và Deep copy — clone object/array thế nào cho đúng?
+
+- **Shallow copy (bản sao nông)**: Chỉ copy cấp một. Object/array lồng bên trong vẫn tham chiếu cùng chỗ — sửa bên này ảnh hưởng bên kia. Cách tạo: `{ ...obj }`, `[...arr]`, `Object.assign({}, obj)`.
+- **Deep copy (bản sao sâu)**: Copy toàn bộ cấu trúc lồng nhau, hai bản độc lập. Cách đơn giản: `JSON.parse(JSON.stringify(obj))` (mất function, Date thành string, không xử lý circular reference). Cách an toàn hơn: dùng thư viện (Lodash `_.cloneDeep`) hoặc `structuredClone()` (môi trường hiện đại).
+- Khi cần bất biến (immutability) trong React hoặc state management, thường dùng shallow copy đủ nếu cập nhật đúng tầng; khi cấu trúc lồng sâu thì cần deep copy hoặc cập nhật immutable từng tầng.
+
+### 10. Map vs Object, Set vs Array — khi nào dùng gì?
+
+- **Map vs Object**: Map cho phép key bất kỳ (object, function), giữ thứ tự chèn, có `.size`, có sẵn `.has()`, `.get()`, `.set()`, `.delete()`. Object chỉ nên dùng khi key là string/symbol và cần literal đơn giản. Map phù hợp cache, metadata gắn với object, dictionary key phức tạp.
+- **Set vs Array**: Set lưu giá trị **duy nhất** (no duplicate), `.has()` O(1) so với `array.includes()`. Dùng Set khi cần kiểm tra tồn tại nhanh hoặc loại trùng. Array khi cần thứ tự, index, trùng lặp.
+- **WeakMap / WeakSet**: Key là object, không cản garbage collection khi không còn tham chiếu — dùng cho metadata gắn object mà không giữ object “sống” thêm.
+
+### 11. Optional chaining (`?.`) và Nullish coalescing (`??`)
+
+- **Optional chaining (`?.`)**: Truy cập thuộc tính lồng nhau an toàn: `obj?.a?.b`. Nếu bất kỳ bước nào là `null` hoặc `undefined` thì cả biểu thức trả về `undefined` thay vì ném lỗi. Dùng với gọi hàm: `fn?.()`.
+- **Nullish coalescing (`??`)**: Trả về vế phải chỉ khi vế trái là `null` hoặc `undefined`. Khác với `||`: `0 ?? 1` → `0`, `0 || 1` → `1`. Dùng khi muốn giữ giá trị `0`, `""`, `false` và chỉ fallback khi null/undefined.
+
+### 12. Strict mode (`"use strict"`) là gì?
+
+- Ở đầu file hoặc đầu function, khai báo `"use strict"` để JS chạy ở chế độ nghiêm ngặt.
+- **Tác dụng**: Không cho phép biến chưa khai báo (tránh tạo global ngẫu nhiên); `this` trong hàm thường là `undefined` thay vì global; cấm xóa biến/argument, duplicate parameter; một số từ khóa dành riêng. Giúp tránh lỗi khó phát hiện và chuẩn bị cho phiên bản JS mới. Module ES6 và class mặc định strict.
+
+### 13. Debounce và Throttle — khác nhau và ứng dụng
+
+- **Debounce**: Chỉ gọi hàm **sau khi** user ngừng thao tác một khoảng thời gian (vd. ngừng gõ 300ms). Ứng dụng: search khi gõ, resize window, validate input.
+- **Throttle**: Gọi hàm **tối đa** một lần trong mỗi khoảng thời gian (vd. mỗi 300ms một lần). Ứng dụng: scroll, scroll load more, click nút tránh double submit.
+- Cả hai đều giảm số lần gọi hàm trong các sự kiện lặp nhanh (scroll, resize, keyup) để tối ưu hiệu năng và trải nghiệm.
+
+### 14. Symbol, Iterator và Generator — dùng khi nào?
+
+- **Symbol**: Kiểu dữ liệu primitive, mỗi lần `Symbol()` tạo ra giá trị duy nhất. Dùng làm key cho thuộc tính “ẩn” (không trùng với key string), hoặc làm constant (vd. `Symbol.iterator`). Tránh conflict khi mở rộng object bên thứ ba.
+- **Iterator**: Giao thức cho phép object có thể bị duyệt (for...of). Object cần có method `[Symbol.iterator]()` trả về object có `next()` → `{ value, done }`. Array, Map, Set đã có sẵn.
+- **Generator**: Hàm `function*` trả về iterator, có thể tạm dừng bằng `yield` và tiếp tục. Dùng cho lazy evaluation, infinite sequence, hoặc flow bất đồng bộ (trước khi async/await phổ biến).
+
+### 15. Stack vs Heap, Garbage Collection (sơ lược)
+
+- **Stack**: Lưu biến primitive và tham chiếu (reference), gọi hàm (call stack). Cấp phát/hủy nhanh, kích thước giới hạn — stack overflow khi đệ quy quá sâu.
+- **Heap**: Lưu object, array, function — dữ liệu kích thước lớn hoặc động. Truy cập qua reference trong stack.
+- **Garbage Collection (GC)**: Engine (vd. V8) tự thu hồi vùng heap không còn được tham chiếu. Developer không điều khiển trực tiếp; tránh giữ reference không cần thiết (global, closure, event listener cũ) để tránh memory leak.
+
+#### Câu hỏi mở rộng (JavaScript)
+
+- **Hoisting & TDZ:** `let` và `const` có bị hoisting không? Có — chúng được đưa lên đầu block nhưng rơi vào **Temporal Dead Zone (TDZ)**; truy cập trước dòng khai báo sẽ gây `ReferenceError`. Ví dụ: `console.log(x); let x = 1;` → lỗi.
+- **Event Loop — thứ tự in ra:** Thứ tự ưu tiên thường là: code đồng bộ → `process.nextTick` (Node) → microtasks (Promise, `queueMicrotask`) → một macrotask (vd. `setTimeout`) → lặp lại. Cho đoạn code có `setTimeout(0)`, `Promise.then`, `queueMicrotask` và giải thích thứ tự.
+- **Closure + vòng lặp:** Vòng `for` dùng `var` với `setTimeout(..., 0)` in ra index — tại sao toàn in cùng một số? Vì `var` là function scope, khi callback chạy thì vòng lặp đã xong và biến đã là giá trị cuối. Cách sửa: dùng `let` (block scope) hoặc closure (IIFE/function tạo scope mới cho từng `i`).
+- **Arrow function làm method:** Dùng arrow function làm method của object (vd. `obj.method = () => this`) — `this` lúc đó là gì? Arrow function không có `this` riêng, nó lấy `this` từ lexical scope (ví dụ `window`/`global` hoặc module), không phải từ `obj`. Nếu cần `this` trỏ vào object thì dùng function thường.
+- **`__proto__` vs `prototype`:** `prototype` là thuộc tính trên **hàm** (constructor), dùng khi tạo object bằng `new`. `__proto__` là liên kết nội bộ (internal link) của **object** tới prototype của nó. `Object.create(proto)` tạo object mới với `__proto__` trỏ tới `proto`. Class ES6 bản chất vẫn là prototype + constructor.
+- **Promise.all / race / allSettled / any:** `Promise.all` — chờ tất cả thành công, một reject thì reject ngay. `Promise.race` — chờ phần tử đầu tiên settle (fulfill hoặc reject). `Promise.allSettled` — chờ tất cả, trả về mảng trạng thái từng promise (fulfilled/rejected). `Promise.any` — chờ phần tử đầu tiên fulfill; nếu tất cả reject thì reject. Dùng từng cái tùy nhu cầu (parallel có lỗi vẫn chạy → allSettled; chạy nhiều nguồn lấy kết quả nhanh nhất → race).
+- **Type coercion:** Giải thích `[] + []`, `[] + {}`, `{} + []` — do `+` ép kiểu sang string khi có object, `[].toString()` là `""`, `{}.toString()` là `"[object Object]"`, nên `[] + []` → `""`, `[] + {}` → `"[object Object]"`, `{} + []` có thể bị parse thành block rỗng + `+[]` → `0`. `typeof null` là `"object"` — đây là bug lịch sử của JS, không sửa để tránh break code cũ.
+
 ---
 
 ## Phần 2: NodeJS (Kiểu trúc và Vận hành)
@@ -260,3 +310,47 @@ Mặc dù cả `worker_threads` và `child_process` đều là các giải pháp
 **Bí kíp Tóm lược cho nhà tuyển dụng:**
 
 > "Dùng **Child Process** nếu ta cần chạy mã của một phần mềm/ngôn ngữ khác bên ngoài, chấp nhận cách ly dung lượng RAM riêng biệt. Dùng **Worker Threads** để viết hàm tính toán Toán Học/CPU cường độ cao ngay bằng JS mà vẫn muốn chia sẻ chung một vùng biến dữ liệu dưới nền với luồng cha để tiết kiệm tài nguyên."
+
+### 12. Middleware (Express) là gì? Thứ tự thực thi ra sao?
+
+- **Middleware** là hàm có signature `(req, res, next)`. Nó nhận request, xử lý (log, parse body, kiểm tra auth), rồi gọi `next()` để chuyển sang middleware hoặc route tiếp theo, hoặc kết thúc bằng `res.send()`/`res.json()`.
+- **Thứ tự**: Middleware chạy theo thứ tự đăng ký (app.use, app.get, ...). Nếu không gọi `next()` thì request dừng tại đó. Thường đặt middleware chung (logger, cors, body-parser) trước, sau đó route cụ thể. Middleware lỗi có 4 tham số `(err, req, res, next)`.
+- Ứng dụng: authentication, logging, compression, validation, error handler tập trung.
+
+### 13. Biến môi trường (`process.env`) và quản lý cấu hình
+
+- **`process.env`**: Object chứa biến môi trường của process. Trong Node thường dùng cho port, URL DB, API key, NODE_ENV (development/production). Không commit secret vào code — dùng file `.env` (và thư viện `dotenv`) hoặc biến môi trường của hệ điều hành/container.
+- **Quản lý cấu hình**: Tách config theo môi trường (config/development.js, production.js), validate biến bắt buộc lúc khởi động, dùng constant cho default để code dễ đọc và bảo trì.
+
+### 14. Event Emitter (`EventEmitter`) trong Node
+
+- Nhiều API Node (fs, net, http, stream) kế thừa từ `EventEmitter`. Cho phép đăng ký listener bằng `.on('event', callback)` và phát sự kiện bằng `.emit('event', ...args)`.
+- **Ứng dụng**: Tách logic theo sự kiện (event-driven), custom stream/API, giao tiếp giữa module. Một object có thể emit nhiều loại event, nhiều listener cho một event.
+- **Lưu ý**: Nhớ `.removeListener()` hoặc `.off()` khi không dùng nữa để tránh memory leak; listener lỗi nên được bắt trong listener hoặc dùng `eventEmitter.on('error', ...)`.
+
+### 15. Global objects: `process`, `__dirname`, `__filename`
+
+- **`process`**: Object đại diện process Node đang chạy. Có `process.env`, `process.argv`, `process.cwd()`, `process.exit()`, `process.on('uncaughtException', ...)`, v.v. Dùng để đọc cấu hình, thoát chương trình, bắt signal.
+- **`__dirname`**: Đường dẫn thư mục chứa file hiện tại (absolute). **`__filename`**: Đường dẫn đầy đủ của file hiện tại. Chỉ có trong CommonJS; với ES Modules dùng `import.meta.url` và `path`/`fileURLToPath` để suy ra đường dẫn.
+- Hữu ích khi load file tương đối (vd. `path.join(__dirname, 'data.json')`) hoặc cấu hình path theo môi trường.
+
+### 16. Semantic Versioning (semver) và `package-lock`
+
+- **Semver**: Version dạng `MAJOR.MINOR.PATCH` (vd. 1.2.3). MAJOR tăng khi breaking change, MINOR khi thêm tính năng tương thích ngược, PATCH khi sửa lỗi. Trong `package.json`, `^1.2.3` cho phép cập nhật MINOR/PATCH, `~1.2.3` chỉ PATCH, không prefix = cố định version.
+- **`package-lock.json`** (hoặc `yarn.lock`, `pnpm-lock.yaml`): Khóa chính xác version mọi dependency (kể cả transitive) để cài đặt lặp lại cho cùng một cây. Nên commit lock file để build nhất quán giữa môi trường và giữa các lần cài.
+
+### 17. Debugging Node — `--inspect`, Chrome DevTools
+
+- Chạy `node --inspect script.js` (hoặc `--inspect-brk` để dừng ở dòng đầu). Node mở cổng debug (mặc định 9229). Mở Chrome, vào `chrome://inspect`, chọn “Open dedicated DevTools for Node” để đặt breakpoint, xem call stack, biến, memory.
+- Trong code có thể dùng `debugger;` để dừng tại chỗ khi chạy dưới inspector. Hữu ích khi debug async, event loop, hoặc lỗi khó tái hiện.
+
+#### Câu hỏi mở rộng (NodeJS)
+
+- **Các phase của Event Loop (Node):** Thứ tự các phase: Timers (`setTimeout`, `setInterval`) → Pending callbacks → Idle/Prepare → Poll (I/O) → Check (`setImmediate`) → Close callbacks. Mỗi vòng lặp chạy lần lượt qua các phase; biết điều này giúp giải thích thứ tự giữa `setTimeout` và `setImmediate`.
+- **Backpressure (Stream):** Khi Writable stream không kịp xử lý, dữ liệu từ Readable ứ lại — đó là backpressure. Cần lắng nghe sự kiện `drain` trên Writable và tạm dừng đọc (vd. `readable.pause()`) hoặc kiểm tra `stream.write()` trả về `false` để tránh tràn bộ nhớ. `pipe()` đã xử lý backpressure tự động.
+- **`require()` cache và circular dependency:** Module được cache theo đường dẫn đã resolve. Cùng file require từ hai đường dẫn khác nhau có thể cho hai instance. Circular dependency (A require B, B require A): khi B được load, A có thể chưa export xong nên B nhận `undefined` cho phần A export — tránh bằng cách không phụ thuộc giá trị A ngay lúc load trong B.
+- **Cluster module và PM2:** Cluster tạo nhiều process con (worker), mỗi process có Event Loop riêng, chia tải qua round-robin (mặc định). PM2 dùng cluster để scale theo số CPU; khi một worker chết, master có thể restart worker mới. Giúp tận dụng đa nhân và tăng độ ổn định.
+- **Buffer vs TypedArray:** Buffer là API Node cho binary, cấp phát ngoài V8 heap. TypedArray (Uint8Array, v.v.) là chuẩn ES, có thể map từ Buffer. Dùng Buffer khi làm việc với file/network trong Node; TypedArray khi cần chuẩn chạy cả browser lẫn Node hoặc Web APIs.
+- **Sau `uncaughtException` có nên tiếp tục chạy?** Không nên coi app còn “ổn” — state có thể đã corrupt. Best practice: log lỗi, dọn dẹp (đóng kết nối, session), rồi **graceful shutdown** (exit process hoặc restart dưới sự giám sát của process manager như PM2).
+- **Node vs Go (Goroutines):** Node: single thread + event loop, I/O rất tốt, CPU-bound kém. Go: đa luồng nhẹ (goroutines), tốt cả I/O và CPU-bound, kiểu tĩnh. So sánh giúp chọn stack: real-time/streaming/JS fullstack → Node; high concurrency + tính toán hoặc hệ thống hạ tầng → Go.
+- **Worker Threads — Event Loop riêng, `fork()` vs `spawn()`:** Mỗi Worker có V8 và Event Loop riêng, không share global với main thread; giao tiếp qua `postMessage` hoặc `SharedArrayBuffer`. Child process: `spawn()` chạy chương trình mới (file thực thi/script); `fork()` là `spawn()` đặc biệt tạo process Node con với kênh IPC có sẵn để gửi nhận message. Dùng fork khi cần nhiều process Node giao tiếp; spawn khi gọi FFmpeg, script Python, v.v.
