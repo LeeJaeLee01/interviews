@@ -17,6 +17,7 @@
 
 ### 2. Container khác gì VM (Virtual Machine)?
 
+
 | Tiêu chí                | Container (Docker)                                  | VM (Virtual Machine)                        |
 | ----------------------- | --------------------------------------------------- | ------------------------------------------- |
 | **Đơn vị ảo hóa**       | Ứng dụng + runtime (process, namespace, cgroups)    | Cả OS (guest OS) chạy trên hypervisor       |
@@ -24,6 +25,7 @@
 | **Thời gian khởi động** | Giây                                                | Phút                                        |
 | **Tài nguyên**          | Chia sẻ kernel host, ít overhead                    | Mỗi VM có kernel riêng, tốn RAM/CPU hơn     |
 | **Isolation**           | Process/filesystem/network — mạnh nhưng cùng kernel | Cô lập phần cứng ảo — rất mạnh, khác kernel |
+
 
 **Tóm tắt:** Container không chạy OS riêng, chỉ chạy process trong "hộp" (namespace + cgroups) trên kernel của host. VM chạy cả một OS ảo.
 
@@ -42,15 +44,15 @@ Ví dụ: FROM → RUN (cài package) → COPY (code) → CMD/ENTRYPOINT (lệnh
 
 ### 5. CMD vs ENTRYPOINT
 
-- **`CMD`**: Lệnh mặc định (và tham số) khi container chạy. Có thể **ghi đè** hoàn toàn khi `docker run ...` truyền argument (vd: `docker run myimg /bin/sh` thì CMD bị thay).
-- **`ENTRYPOINT`**: Lệnh **cố định** khi container chạy. Argument của `docker run` được **nối thêm** vào ENTRYPOINT (trừ khi dùng `--entrypoint`).
+- `**CMD`**: Lệnh mặc định (và tham số) khi container chạy. Có thể **ghi đè** hoàn toàn khi `docker run ...` truyền argument (vd: `docker run myimg /bin/sh` thì CMD bị thay).
+- `**ENTRYPOINT`**: Lệnh **cố định** khi container chạy. Argument của `docker run` được **nối thêm** vào ENTRYPOINT (trừ khi dùng `--entrypoint`).
 
 **Kết hợp thường gặp:** `ENTRYPOINT ["executable"]` + `CMD ["default", "args"]` → khi run không truyền gì thì chạy executable + default args; khi truyền args thì chạy executable + args đó. CMD lúc này đóng vai default arguments cho ENTRYPOINT.
 
 ### 6. COPY vs ADD
 
-- **`COPY`**: Chỉ **copy file/thư mục** từ host (build context) vào image. Không giải nén, không tải từ URL. Nên dùng cho code và file tĩnh.
-- **`ADD`**: Copy + **thêm hành vi**: (1) URL — tải file từ mạng; (2) file local dạng `.tar*` — tự **giải nén** vào đích. Hành vi giải nén và tải URL khó đoán, ít transparent → dễ lỗi, khó cache.
+- `**COPY`**: Chỉ **copy file/thư mục** từ host (build context) vào image. Không giải nén, không tải từ URL. Nên dùng cho code và file tĩnh.
+- `**ADD`**: Copy + **thêm hành vi**: (1) URL — tải file từ mạng; (2) file local dạng `.tar*` — tự **giải nén** vào đích. Hành vi giải nén và tải URL khó đoán, ít transparent → dễ lỗi, khó cache.
 
 **Khuyến nghị:** Ưu tiên **COPY**. Chỉ dùng ADD khi cần tải từ URL hoặc cố ý giải nén tar (và ghi rõ trong comment).
 
@@ -130,14 +132,14 @@ Chỉ cần map khi muốn **truy cập từ bên ngoài host**. Container nói 
 - **no** (mặc định): Không restart.
 - **on-failure[:max-retries]**: Chỉ restart khi container exit với code khác 0, có thể giới hạn số lần.
 - **always**: Bất chấp tất cả, hễ Docker daemon (hoặc Server) khởi động lại là nó sẽ cố gắng khởi động lại container này. **Điểm yếu khó chịu:** Ngay cả khi tối qua bạn đã chủ động gõ lệnh `docker stop <container>` để tắt nó đi cho nhẹ máy, thì sáng nay khi bạn Restart lại Server, con container này sẽ **tự động sống dậy và chạy tiếp** (bỏ qua lệnh stop của bạn trước đó).
-- **unless-stopped**: Thông minh và "biết ý" đồ của người dùng hơn. Nó tự động restart khi app bị crash hay server reboot giống hệt `always`. **TUY NHIÊN, điểm khác biệt sống còn là:** Nếu bạn đã đích thân dùng lệnh `docker stop` để tắt nó, Docker sẽ "ghi nhớ" quyết định này. Lần tới khi Server bị reboot hoặc Docker service khởi động lại, Docker sẽ thấy _"À, chủ nhân đã cố tình tắt nó đi rồi"_ và nó sẽ **NẮM IM, KHÔNG tự động khởi động lại** container đó nữa. Đây là policy được dùng nhiều nhất cho các hệ thống Production.
+- **unless-stopped**: Thông minh và "biết ý" đồ của người dùng hơn. Nó tự động restart khi app bị crash hay server reboot giống hệt `always`. **TUY NHIÊN, điểm khác biệt sống còn là:** Nếu bạn đã đích thân dùng lệnh `docker stop` để tắt nó, Docker sẽ "ghi nhớ" quyết định này. Lần tới khi Server bị reboot hoặc Docker service khởi động lại, Docker sẽ thấy *"À, chủ nhân đã cố tình tắt nó đi rồi"* và nó sẽ **NẮM IM, KHÔNG tự động khởi động lại** container đó nữa. Đây là policy được dùng nhiều nhất cho các hệ thống Production.
 
 Dùng khi chạy service cần high availability: set `always` hoặc `unless-stopped` để container tự sống lại sau crash hoặc reboot.
 
 ### 17. Environment variable truyền vào container thế nào?
 
-- **`-e KEY=value`** / **`--env KEY=value`**: Truyền từng biến khi `docker run`.
-- **`--env-file .env`**: Truyền cả file (mỗi dòng `KEY=value`).
+- `**-e KEY=value`** / `**--env KEY=value**`: Truyền từng biến khi `docker run`.
+- `**--env-file .env**`: Truyền cả file (mỗi dòng `KEY=value`).
 - Trong **Docker Compose**: `environment:` (map trực tiếp) hoặc `env_file: .env`. Có thể override bằng biến môi trường shell khi chạy `docker compose`.
 
 Giá trị từ host có thể dùng cho config (port, DB URL); **không** nên hardcode secret trong image — dùng env hoặc secret management.
@@ -153,18 +155,18 @@ Giá trị từ host có thể dùng cho config (port, DB URL); **không** nên 
 
 ### 20. Debug container đang chạy?
 
-- **`docker exec -it <container> /bin/sh`** (hoặc `/bin/bash` nếu có): Vào shell trong container đang chạy để xem file, process, env.
-- **`docker logs <container>`** / **`docker logs -f ...`**: Xem stdout/stderr của process chính.
-- **`docker inspect <container>`**: Xem metadata (network, mount, env, state).
+- `**docker exec -it <container> /bin/sh`** (hoặc `/bin/bash` nếu có): Vào shell trong container đang chạy để xem file, process, env.
+- `**docker logs <container>**` / `**docker logs -f ...**`: Xem stdout/stderr của process chính.
+- `**docker inspect <container>**`: Xem metadata (network, mount, env, state).
 - Gắn **debugger**: Map thêm port, chạy process với debug flag (vd. Node `--inspect`) rồi attach từ host hoặc IDE.
 
 ### 21. Docker có memory limit không?
 
 **Có.** Dùng **cgroups** để giới hạn:
 
-- **`docker run -m 512m`** hoặc **`--memory=512m`**: Giới hạn RAM.
-- **`--memory-swap`**: Giới hạn RAM + swap (mặc định swap = 2× memory khi chỉ set `-m`).
-- **`--cpus`** / **`--cpu-shares`**: Giới hạn CPU.
+- `**docker run -m 512m`** hoặc `**--memory=512m**`: Giới hạn RAM.
+- `**--memory-swap**`: Giới hạn RAM + swap (mặc định swap = 2× memory khi chỉ set `-m`).
+- `**--cpus**` / `**--cpu-shares**`: Giới hạn CPU.
 
 Trong Compose: `deploy.resources.limits.memory: 512M`. Container vượt limit có thể bị OOM kill (tùy cấu hình host).
 
@@ -227,8 +229,8 @@ Khi muốn **bỏ qua toàn bộ cache layer** và build lại từ đầu. Dùn
 
 ### 31. `docker compose` và `docker-compose` (dấu gạch ngang) khác nhau thế nào?
 
-- **`docker compose`** (plugin, không dấu ngang): Plugin đi kèm Docker Engine, dùng file Compose V2 (phiên bản mới), tích hợp với CLI Docker. Là hướng chính thức, nên dùng.
-- **`docker-compose`** (standalone, có dấu ngang): Binary cũ viết bằng Python, cài riêng. Vẫn hỗ trợ file cũ và mới nhưng không được phát triển mạnh bằng plugin.
+- `**docker compose`** (plugin, không dấu ngang): Plugin đi kèm Docker Engine, dùng file Compose V2 (phiên bản mới), tích hợp với CLI Docker. Là hướng chính thức, nên dùng.
+- `**docker-compose**` (standalone, có dấu ngang): Binary cũ viết bằng Python, cài riêng. Vẫn hỗ trợ file cũ và mới nhưng không được phát triển mạnh bằng plugin.
 
 Cú pháp file `docker-compose.yml` tương thích; khác chủ yếu ở cách gọi lệnh và phiên bản tính năng.
 
@@ -247,7 +249,7 @@ Docker ghi stdout/stderr của container theo **logging driver**. Mặc định 
 
 ### 34. `docker system prune` làm gì? Có xóa volume không?
 
-**`docker system prune`** xóa: container đã dừng, network không dùng, image “dangling” (không tag). **Không** xóa volume mặc định (tránh mất data). Để xóa cả volume không được container nào dùng: `docker system prune -a --volumes` (cực kỳ cẩn thận). `-a` còn xóa luôn mọi image không được container nào dùng. Dùng để giải phóng disk sau khi test/develop.
+`**docker system prune`** xóa: container đã dừng, network không dùng, image “dangling” (không tag). **Không** xóa volume mặc định (tránh mất data). Để xóa cả volume không được container nào dùng: `docker system prune -a --volumes` (cực kỳ cẩn thận). `-a` còn xóa luôn mọi image không được container nào dùng. Dùng để giải phóng disk sau khi test/develop.
 
 ### 35. ARG và ENV trong Dockerfile khác nhau thế nào?
 
@@ -259,11 +261,11 @@ Có thể dùng ENV để “ghi lại” giá trị ARG nếu cần giá trị 
 ### 36. EXPOSE trong Dockerfile và `-p` khi `docker run` khác nhau thế nào?
 
 - **EXPOSE**: Chỉ **khai báo** (document) port mà container lắng nghe; **không** mở port ra host. Có tác dụng gợi ý cho người dùng và cho `docker run -P` (publish tất cả port đã EXPOSE).
-- **`-p hostPort:containerPort`**: Thật sự **map port** từ host vào container; traffic từ bên ngoài mới tới được. Nếu không dùng `-p` (hoặc `-P`), dù có EXPOSE thì từ host vẫn không truy cập được container qua port đó.
+- `**-p hostPort:containerPort`**: Thật sự **map port** từ host vào container; traffic từ bên ngoài mới tới được. Nếu không dùng `-p` (hoặc `-P`), dù có EXPOSE thì từ host vẫn không truy cập được container qua port đó.
 
 ### 37. Làm sao xem container đang tốn bao nhiêu CPU/RAM? (`docker stats`)
 
-**`docker stats`** (không cần tham số): Liệt kê mọi container đang chạy với % CPU, memory usage, memory limit, network I/O, block I/O. **`docker stats <container>`**: Chỉ một container. Dữ liệu realtime, lấy từ cgroups. Dùng để kiểm tra sau khi set `-m` / `--cpus` hoặc debug container ăn nhiều tài nguyên.
+`**docker stats`** (không cần tham số): Liệt kê mọi container đang chạy với % CPU, memory usage, memory limit, network I/O, block I/O. `**docker stats <container>**`: Chỉ một container. Dữ liệu realtime, lấy từ cgroups. Dùng để kiểm tra sau khi set `-m` / `--cpus` hoặc debug container ăn nhiều tài nguyên.
 
 ### 38. Overlay storage driver là gì?
 
@@ -271,7 +273,7 @@ Có thể dùng ENV để “ghi lại” giá trị ARG nếu cần giá trị 
 
 ### 39. Vì sao không nên chạy container với `--privileged`?
 
-**`--privileged`** cho container gần như **toàn quyền** trên host (bỏ phần lớn restriction, có thể load kernel module, truy cập device). Rủi ro bảo mật rất cao: lỗi trong container hoặc bị compromise có thể ảnh hưởng toàn host. Chỉ dùng khi thật sự cần (vd. chạy Docker-in-Docker, driver đặc biệt). Ưu tiên dùng `--cap-add` cho đúng capability cần thiết thay vì mở hết privileged.
+`**--privileged`** cho container gần như **toàn quyền** trên host (bỏ phần lớn restriction, có thể load kernel module, truy cập device). Rủi ro bảo mật rất cao: lỗi trong container hoặc bị compromise có thể ảnh hưởng toàn host. Chỉ dùng khi thật sự cần (vd. chạy Docker-in-Docker, driver đặc biệt). Ưu tiên dùng `--cap-add` cho đúng capability cần thiết thay vì mở hết privileged.
 
 ### 40. Scan image (bảo mật) làm thế nào?
 
@@ -284,6 +286,79 @@ Trong CI/CD nên chạy scan sau khi build image; fail pipeline nếu critical/h
 ---
 
 ## Phần 2: Kubernetes
+
+### Sơ đồ tham khảo: Deploy production **backend (BE)** — Docker image + K8s + HTTPS cho một domain
+
+Luồng BE: **build image API (Docker) → đẩy registry → Deployment BE nhiều Pod → Service → Ingress (HTTPS) → client gọi `https://domain/api/...`**
+
+```mermaid
+flowchart TB
+    subgraph Dev["CI / Dev — triển khai"]
+        DEV[Developer / CI pipeline]
+        DOCKER[Docker build image BE]
+        REG[(Container Registry)]
+        DEV -->|① build| DOCKER -->|② push image| REG
+    end
+
+    subgraph Cluster["Kubernetes cluster"]
+        subgraph Edge["Lớp vào & TLS"]
+            EXT[LoadBalancer / NodePort]
+            IC[Ingress Controller]
+            CM[cert-manager\nTLS cho domain]
+            ING[Ingress\nhost + path + tls]
+        end
+        subgraph BE["Backend API"]
+            DEP[Deployment BE\nN replicas]
+            SVC[Service ClusterIP\napi-service]
+            POD[(Pods BE\nport 3030)]
+            DEP -->|⑤| SVC -->|⑥| POD
+        end
+        CR[(containerd / CRI-O)]
+        REG -->|③ pull image + tạo Pod| DEP
+        CR -.->|④ chạy container| POD
+        ING -->|⑦ Ingress YAML → controller| IC
+        CM -.->|⑧ cấp / gắn TLS| IC
+        EXT -->|⑪ traffic vào cluster| IC
+        IC -->|⑫ proxy HTTP/S tới Service| SVC
+    end
+
+    DNS[DNS: domain → IP LB]
+    CLIENT[Client HTTPS]
+    DNS -->|⑨ DNS trỏ IP| EXT
+    CLIENT -->|⑩ gửi HTTPS| EXT
+```
+
+**Thứ tự gợi ý:**
+
+| # | Mũi tên | Ý nghĩa |
+|---|---------|---------|
+| ①② | Dev → build → Registry | Build image BE và đẩy lên registry. |
+| ③ | Registry → Deployment | Cluster pull image, Deployment tạo/cập nhật Pod. |
+| ④ | Runtime → Pod | containerd/CRI-O chạy container từ image. |
+| ⑤⑥ | Deployment → Service → Pod | Service trỏ tới Pod qua label; kube-proxy/LB nội bộ. |
+| ⑦ | Ingress resource → Controller | Manifest Ingress được controller đọc (routing + TLS ref). |
+| ⑧ | cert-manager → Controller | Chứng chỉ TLS (Let's Encrypt hoặc Secret). |
+| ⑨ | DNS → LoadBalancer | Domain resolve ra IP public của LB. |
+| ⑩ | Client → LoadBalancer | Request HTTPS từ client vào cổng vào cluster. |
+| ⑪ | LoadBalancer → Ingress Controller | Traffic vào đến controller (TLS có thể kết thúc ở đây). |
+| ⑫ | Ingress Controller → Service | Reverse proxy theo host/path tới Service BE. |
+
+*(Số ⑤⑥ có thể xảy ra song song hoặc trước request — Ingress chỉ cần Service & Pod đã sẵn sàng.)*
+
+**Giải thích ngắn (chỉ BE):**
+
+| Thành phần | Vai trò |
+|------------|---------|
+| **Docker / image BE** | Đóng gói API thành image; node K8s kéo image từ registry và chạy trong Pod (runtime containerd/CRI-O). |
+| **Deployment BE** | Số **replica** API, rolling update; Pod chết thì tạo lại. |
+| **Service** | **ClusterIP** + selector → load balance nội bộ tới các Pod BE (không expose Pod IP trực tiếp). |
+| **Ingress** | Khai báo **host** (vd. `api.farme.vn` hoặc `farme.vn`) + **path** (vd. `/api`) + **tls**; Ingress Controller nhận HTTPS và forward tới `Service` BE. |
+| **HTTPS** | **cert-manager** + Let's Encrypt (HTTP-01/DNS-01) hoặc Secret TLS thủ công. |
+| **LoadBalancer** | IP public; DNS trỏ domain vào đó (cloud LB / MetalLB / LB ngoài cluster). |
+
+**Tóm tắt một câu:** *Image BE (Docker) → registry → Deployment nhiều Pod API → Service → Ingress kết thúc HTTPS theo domain/path → client chỉ gọi `https://.../api/...`.*
+
+---
 
 ### 1. Làm thế nào để Stop (Dừng) một Pod trong Kubernetes (K8s)?
 
@@ -333,4 +408,5 @@ kubectl label pod <pod-name> app- status=debug --overwrite
 
 **Tóm tắt "Bùa hộ mệnh" đi Phỏng vấn:**
 
-> _"Trong Kubernetes không có khái niệm Tạm dừng (Pause/Stop) Pod như Docker, mà chỉ có Xóa (Delete) đi tạo lại do tính chất phù du (ephemeral). Cách chuẩn mực là dùng `kubectl delete pod` để kích hoạt quá trình Graceful Termination (chờ 30s gửi SIGTERM đóng kết nối an toàn). Nếu Pod bị treo cứng Terminating, ta dùng cờ `--force --grace-period=0`. Còn nếu mục đích là vĩnh viễn tắt App không cho tự mọc lại, ta phải can thiệp vào tầng trên bằng lệnh `kubectl scale deployment --replicas=0`."_
+> *"Trong Kubernetes không có khái niệm Tạm dừng (Pause/Stop) Pod như Docker, mà chỉ có Xóa (Delete) đi tạo lại do tính chất phù du (ephemeral). Cách chuẩn mực là dùng `kubectl delete pod` để kích hoạt quá trình Graceful Termination (chờ 30s gửi SIGTERM đóng kết nối an toàn). Nếu Pod bị treo cứng Terminating, ta dùng cờ `--force --grace-period=0`. Còn nếu mục đích là vĩnh viễn tắt App không cho tự mọc lại, ta phải can thiệp vào tầng trên bằng lệnh `kubectl scale deployment --replicas=0`."*
+

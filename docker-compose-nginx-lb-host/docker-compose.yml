@@ -1,0 +1,35 @@
+# Mẫu phỏng vấn: Compose + Nginx LB (container) + Nginx TLS (host)
+# Chạy: docker compose up -d
+# Scale BE: docker compose up -d --scale app=3
+#
+# Lưu ý:
+# - Không dùng container_name cho `app` để có thể --scale app=N
+# - Chỉ nginx-lb publish port 3030 ra host; app chỉ expose nội bộ network
+
+services:
+  app:
+    image: hashicorp/http-echo:0.2.3
+    # Demo backend: trả text (thay bằng image BE thật + Dockerfile build)
+    command: ["-listen=:3030", "-text=hello-from-backend"]
+    expose:
+      - "3030"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  nginx-lb:
+    image: nginx:1.27-alpine
+    ports:
+      # Host:container — host nginx (HTTPS) sẽ proxy tới 127.0.0.1:3030
+      - "${LB_HOST_PORT:-3030}:80"
+    volumes:
+      - ./nginx-lb/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
