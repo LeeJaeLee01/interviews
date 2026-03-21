@@ -354,3 +354,36 @@ Mặc dù cả `worker_threads` và `child_process` đều là các giải pháp
 - **Sau `uncaughtException` có nên tiếp tục chạy?** Không nên coi app còn “ổn” — state có thể đã corrupt. Best practice: log lỗi, dọn dẹp (đóng kết nối, session), rồi **graceful shutdown** (exit process hoặc restart dưới sự giám sát của process manager như PM2).
 - **Node vs Go (Goroutines):** Node: single thread + event loop, I/O rất tốt, CPU-bound kém. Go: đa luồng nhẹ (goroutines), tốt cả I/O và CPU-bound, kiểu tĩnh. So sánh giúp chọn stack: real-time/streaming/JS fullstack → Node; high concurrency + tính toán hoặc hệ thống hạ tầng → Go.
 - **Worker Threads — Event Loop riêng, `fork()` vs `spawn()`:** Mỗi Worker có V8 và Event Loop riêng, không share global với main thread; giao tiếp qua `postMessage` hoặc `SharedArrayBuffer`. Child process: `spawn()` chạy chương trình mới (file thực thi/script); `fork()` là `spawn()` đặc biệt tạo process Node con với kênh IPC có sẵn để gửi nhận message. Dùng fork khi cần nhiều process Node giao tiếp; spawn khi gọi FFmpeg, script Python, v.v.
+
+---
+
+### 18. Một số câu hỏi “ứng dụng” NodeJS (kèm gợi ý trả lời ngắn)
+
+- **Làm sao để hạn chế việc code “vô tình” cập nhật dữ liệu (mutate) trong NodeJS?**  
+  - **Trả lời:**  
+    - Ưu tiên dùng `const` cho **binding** (không cho re-assign biến) và chỉ dùng `let` khi thực sự cần thay đổi tham chiếu.  
+    - Tránh mutate trực tiếp object/array được truyền vào hàm; thay vào đó **tạo bản copy** bằng spread (`{ ...obj }`, `[...arr]`) hoặc helper rồi trả về object mới (immutable style).  
+    - Với cấu trúc quan trọng, có thể dùng `Object.freeze()` (hoặc deep-freeze khi cần) cho config, constants để nếu có ai cố sửa sẽ fail ngay trong dev.  
+    - Thiết kế API/hàm theo hướng **pure function**: input → output mới, không side-effect lên tham số.
+
+- **Ví dụ đoạn code NodeJS xử lý request mà không cho phép mutate `req.body` trực tiếp?**  
+  - **Trả lời (ý tưởng):** Trong middleware/handler, luôn **tạo biến mới** từ `req.body` trước khi xử lý:  
+    ```js
+    app.post('/user', (req, res) => {
+      const payload = { ...req.body }; // không bao giờ sửa trực tiếp req.body
+      // xử lý trên payload (validate, sanitize, map field...)
+    });
+    ```  
+    Nếu muốn chặn hẳn việc mutate, có thể `Object.freeze(req.body)` sau bước parse (chỉ nên làm cẩn thận, test kỹ).
+
+- **Trong service / repository NodeJS, làm sao để tránh việc một function bên ngoài vô tình thay đổi state nội bộ?**  
+  - **Trả lời:**  
+    - Khi trả dữ liệu ra ngoài (object/array) thì **trả bản copy**, không trả reference đang được cache nội bộ.  
+    - Không expose trực tiếp object “sống” nội bộ (cache, config); chỉ expose method đọc (getter) hoặc clone.  
+    - Nếu dùng TypeScript, khai báo type readonly (`Readonly<T>`, `readonly` trên field) để compiler cảnh báo khi mutate sai chỗ.
+
+- **Câu hỏi ứng dụng khác về NodeJS có thể gặp:**  
+  - Làm sao **chống double-submit** khi user bấm nút tạo order liên tục? (Gợi ý: idempotency key, token một lần, lock theo user/orderId).  
+  - Cách bạn triển khai **rate limiting** trong NodeJS? (Gợi ý: middleware, Redis counter/expire, token bucket).  
+  - Thiết kế một API upload file lớn trong NodeJS sao cho **không ăn hết RAM**? (Gợi ý: streams, `pipe`, backpressure).  
+  - Khi lưu cache trong process (in-memory cache), làm thế nào để tránh code ở nơi khác mutate dữ liệu cache? (Gợi ý: always clone on read/write, `Object.freeze`).

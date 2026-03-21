@@ -21,9 +21,9 @@ Clean Architecture là một phong cách kiến trúc phần mềm do Robert C. 
 - **Độc lập với external systems**: Message queue, cache, 3rd‑party services chỉ là chi tiết triển khai.
 - **Phụ thuộc một chiều (Dependency Rule)**: Mũi tên phụ thuộc luôn hướng **từ ngoài vào trong** (outer layers → inner layers). Tầng trong không biết gì về tầng ngoài.
 
-### Các tầng chính
+### Các tầng chính (Note)
 
-Tên gọi có thể khác nhau tùy tài liệu/proejct, nhưng ý tưởng chung:
+Tên gọi có thể khác nhau tùy tài liệu/project, nhưng ý tưởng chung: **trong cùng (Domain)** chứa nghiệp vụ thuần, **ngoài dần** là Use Cases → Adapters (đổi format) → Infrastructure (DB, HTTP, queue…). Phụ thuộc chỉ hướng từ ngoài vào trong.
 
 - **Entities / Domain Model (Core Domain)**
   - Chứa: domain entities, value objects, domain services, business rules thuần túy.
@@ -45,7 +45,9 @@ Tên gọi có thể khác nhau tùy tài liệu/proejct, nhưng ý tưởng chu
   - Implement các interface (ports) được định nghĩa ở Application/Domain.
   - Ví dụ: `JpaOrderRepository`, `MongoCustomerRepository`, `StripePaymentGateway`, `KafkaEventPublisher`.
 
-### Dependency Rule (quy tắc phụ thuộc)
+**Tóm tắt 4 tầng:** Domain (rules) → Application (use cases, ports) → Adapters (map dữ liệu) → Infrastructure (impl DB, HTTP, queue).
+
+### Dependency Rule (quy tắc phụ thuộc) (Note)
 
 - Tất cả phụ thuộc phải hướng **từ ngoài vào trong**:
   - Infrastructure → Interface Adapters → Application → Domain.
@@ -109,15 +111,13 @@ Tên gọi có thể khác nhau tùy tài liệu/proejct, nhưng ý tưởng chu
   - Không cần phải “full Clean” ngay từ đầu.
   - Có thể refactor từng module/slice sang cấu trúc Clean khi chúng trở nên phức tạp.
 
-### Tóm tắt
+### Tóm tắt (trả lời phỏng vấn)
 
-- **Clean Architecture** giúp:
-  - Tách biệt rõ core business với hạ tầng.
-  - Giảm coupling với framework/DB.
-  - Tăng testability & maintainability.
-- **Chi phí**:
-  - Thiết kế và cấu trúc ban đầu phức tạp hơn.
-  - Cần discipline của cả team để giữ boundaries rõ ràng.
+- **Clean Architecture giúp gì?**  
+  Tách rõ core business khỏi hạ tầng, giảm phụ thuộc vào framework/DB, dễ test và dễ bảo trì.
+
+- **Trade-off / chi phí?**  
+  Thiết kế và cấu trúc ban đầu phức tạp hơn; cần kỷ luật team để giữ ranh giới giữa các layer rõ ràng.
 
 ---
 
@@ -456,3 +456,38 @@ Khi kết hợp với Clean Architecture:
   - Khi cần test unit một cách nghiêm túc, cần mock/fake dependencies.
 - **Không cần quá phức tạp**:
   - Script nhỏ, app rất đơn giản có thể không cần DI container; chỉ cần viết rõ ràng, tách hàm là đủ.
+
+---
+
+## Câu 5: Circular dependency là gì và cách xử lý
+
+### Circular dependency là gì?
+
+- **Circular dependency** (phụ thuộc vòng) là khi **A phụ thuộc B, B lại phụ thuộc A** (hoặc A → B → C → A). Ví dụ: Module A import Module B, Module B import Module A; hoặc Service A inject Service B, Service B inject Service A.
+- **Hệ quả**: Khi IoC container (NestJS, Angular…) resolve dependency, nó không biết khởi tạo cái nào trước → một bên cần tham chiếu tới class/module **chưa được tạo** (lỗi **forward reference**). Hay gặp khi hai module import lẫn nhau hoặc hai service inject lẫn nhau.
+
+### Cách xử lý
+
+- **1. Refactor để bỏ circular (nên làm trước)**  
+  - Tách **interface/abstract** ra module chung; hai module chỉ phụ thuộc interface, không phụ thuộc lẫn nhau.  
+  - Tách logic dùng chung vào **module/service thứ ba** (shared module).  
+  - Dùng **event / message** (EventEmitter, CQRS): một phía emit event, phía kia subscribe, không cần inject trực tiếp nhau.
+
+- **2. Dùng `forwardRef()` khi tạm chưa refactor được (NestJS)**  
+  - **Circular giữa hai module**: Trong `imports` của A dùng `forwardRef(() => BModule)`, trong B dùng `forwardRef(() => AModule)` → Nest hoãn resolve đến khi cả hai đã đăng ký.  
+  - **Circular giữa hai service**: Trong constructor dùng `@Inject(forwardRef(() => BService))` (và B cũng dùng `forwardRef(() => AService)`). Container resolve từng bước, tránh lỗi forward reference.  
+  - **Lazy resolve**: Inject `ModuleRef` và trong method gọi `this.moduleRef.get(SomeService)` sau khi app đã khởi động, tránh circular lúc khởi tạo.
+
+- **3. Không nên lạm dụng `forwardRef`**  
+  Chỉ dùng khi thật sự cần (legacy, refactor khó); ưu tiên refactor để bỏ circular. Nếu dùng thì comment rõ lý do.
+
+### Tóm tắt (trả lời phỏng vấn)
+
+- **Circular dependency là gì?** A phụ thuộc B, B lại phụ thuộc A (hoặc vòng dài hơn); container không biết khởi tạo cái nào trước, dẫn tới lỗi forward reference.
+- **Cách xử lý?** (1) Refactor: tách interface, shared module, hoặc dùng event để bỏ vòng. (2) Trong NestJS có thể dùng `forwardRef(() => Module/Service)` ở cả hai phía (import hoặc `@Inject(forwardRef(...))`). Ưu tiên refactor, chỉ dùng forwardRef khi cần tạm thời.
+
+## Câu 6: **Lifecycle của một HTTP request** đi qua NestJS như thế nào?
+### (Middleware → Guard → Interceptor → Pipe → Controller → Service → …)
+
+- **Trả lời**: Request đi qua middleware (tiền xử lý chung), sau đó tới guards (quyết định cho phép hay chặn), tiếp đến pipes để validate/transform input, rồi interceptor để trước/sau xử lý thêm (logging, mapping response), cuối cùng controller handler gọi service; nếu có exception filter thì bắt và format lỗi trả về.
+
